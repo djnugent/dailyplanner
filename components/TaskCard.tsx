@@ -180,7 +180,7 @@ export function TaskCard({ task }: { task: TaskDV }) {
                 <button className="mr-2 flex w-full flex-col justify-evenly"
                     onClick={() => setEditTaskID(task.id)}>
                     <div className='flex justify-between items-start w-full'>
-                        <p className={"text-left " + isCompleted ? "line-through" : ""}>{task.text}</p>
+                        <p className={"text-left " + (isCompleted ? "line-through" : "")}>{task.text}</p>
                         <RecurringIcon recurring={task.recurring || "once"} />
                     </div>
                     <div className="flex w-full justify-start items-center text-gray-400 gap-x-2">
