@@ -57,8 +57,10 @@ export function TaskCard({ task }: { task: TaskDV }) {
             const updatedTaskDV = await fetchTask({ supabase, taskID: task.id });
 
             const updateDataForKey = (key: any[]) => {
-                queryClient.setQueryData(key, (oldData: TaskDV[] | undefined) => {
-                    return oldData?.map(task => task.id === updatedTaskDV.id ? updatedTaskDV : task);
+                queryClient.setQueryData(key, (oldData: any) => {
+                    if (!oldData) return oldData;
+                    const oData = oldData as TaskDV[];
+                    return oData?.map(task => task.id === updatedTaskDV.id ? updatedTaskDV : task);
                 });
             };
 
@@ -97,7 +99,7 @@ export function TaskCard({ task }: { task: TaskDV }) {
         if (!user || !task || !task.id) return
         const today = new Date()
         const dateStr = dateToSQLDateStr_CST(today);
-        await mutateCreatePlannedTask({ supabase, userID: user?.id, taskID: task.id, date: dateStr })
+        await mutateCreatePlannedTask({ supabase, userID: user?.id, taskID: task.id, date: dateStr, completeUpTo: null })
     }
 
     const handleAddToTomorrow = async () => {
@@ -105,7 +107,7 @@ export function TaskCard({ task }: { task: TaskDV }) {
         const tomorrow = new Date()
         tomorrow.setDate(tomorrow.getDate() + 1)
         const dateStr = dateToSQLDateStr_CST(tomorrow);
-        await mutateCreatePlannedTask({ supabase, userID: user?.id, taskID: task.id, date: dateStr })
+        await mutateCreatePlannedTask({ supabase, userID: user?.id, taskID: task.id, date: dateStr, completeUpTo: null })
     }
 
     const handleRemoveFromToday = async () => {
@@ -178,8 +180,8 @@ export function TaskCard({ task }: { task: TaskDV }) {
                 <button className="mr-2 flex w-full flex-col justify-evenly"
                     onClick={() => setEditTaskID(task.id)}>
                     <div className='flex justify-between items-start w-full'>
-                        <p className={cx("text-left", isCompleted ? "line-through" : "")}>{task.text}</p>
-                        <RecurringIcon recurring={task.recurring} />
+                        <p className={"text-left " + isCompleted ? "line-through" : ""}>{task.text}</p>
+                        <RecurringIcon recurring={task.recurring || "once"} />
                     </div>
                     <div className="flex w-full justify-start items-center text-gray-400 gap-x-2">
                         <p>{listName}</p>
@@ -188,7 +190,7 @@ export function TaskCard({ task }: { task: TaskDV }) {
                 </button >
                 <div className="flex flex-col justify-evenly gap-y-1 border-l border-gray-500 pl-2 pr-1">
                     <button
-                        className={cx(task.today ? "text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300")}
+                        className={task.today ? "text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300"}
                         onClick={() => task.today ? handleRemoveFromToday() : handleAddToToday()}>
                         <svg className="h-6 w-6" viewBox="0 0 24 23" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="1" y="3" width="22" height="19" rx="2" stroke="currentColor" strokeWidth="2" />
@@ -199,7 +201,7 @@ export function TaskCard({ task }: { task: TaskDV }) {
                         </svg>
                     </button>
                     <button
-                        className={cx(task.tomorrow ? "text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300")}
+                        className={task.tomorrow ? "text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300"}
                         onClick={() => task.tomorrow ? handleRemoveFromTomorrow() : handleAddToTomorrow()}>
                         <svg className="h-6 w-6" viewBox="0 0 24 23" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="1" y="3" width="22" height="19" rx="2" stroke="currentColor" strokeWidth="2" />

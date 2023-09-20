@@ -58,7 +58,6 @@ export default function Home() {
                 setListsOverlay={setListsOverlay}
               /> : null}
               {listView === ListView.Archive ? <Archive
-                day={Day.Tomorrow}
                 currentListID={currentListID}
                 setCurrentListID={setCurrentListID}
                 listView={listView}

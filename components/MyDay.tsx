@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { TaskCard } from '@/components/TaskCard'
 import ListSection from '@/components/ListSection'
 import { ChevronDownIcon, ChevronRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
-import { TaskDV, List, Day } from '@/lib/types';
+import { TaskDV, List, Day, ListView } from '@/lib/types';
 import { dateToSQLDateStr_CST } from '@/lib/utils';
 
 function Loading() {
@@ -24,7 +24,8 @@ function Loading() {
     )
 }
 
-export default function MyDay({ day, currentListID, setCurrentListID, listView, setListView, listsOverlay, setListsOverlay }: { day: Day, currentListID: number, setCurrentListID: (listID: number) => void, listView: string, setListView: (listView: string) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
+export default function MyDay({ day, currentListID, setCurrentListID, listView, setListView, listsOverlay, setListsOverlay }: { day: Day, currentListID: number | null, setCurrentListID: (listID: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
+
 
     const session = useSession()
     const supabase = useSupabaseClient()
@@ -64,21 +65,21 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
 
     }, [lists])
 
-    const handleAddTask = async () => {
-        if (!user || !newTaskList) return
+    // const handleAddTask = async () => {
+    //     if (!user || !newTaskList) return
 
-        const text = newTaskText.trim()
-        setNewTaskText('')
-        if (!text) return
+    //     const text = newTaskText.trim()
+    //     setNewTaskText('')
+    //     if (!text) return
 
-        await mutateCreateTask({ supabase, userID: user.id, listID: newTaskList.id, text: newTaskText, recurring: newTaskList.recurring_default })
+    //     await mutateCreateTask({ supabase, userID: user.id, listID: newTaskList.id, text: newTaskText, recurring: newTaskList.recurring_default })
 
-        const today = new Date()
-        if (day === Day.Tomorrow) today.setDate(today.getDate() + 1)
-        const dateStr = dateToSQLDateStr_CST(today);
-        // TODO need to get task id from newly created task some how
-        await mutateCreatePlannedTask({ supabase, userID: user.id, taskID: task.id, date: dateStr })
-    }
+    //     const today = new Date()
+    //     if (day === Day.Tomorrow) today.setDate(today.getDate() + 1)
+    //     const dateStr = dateToSQLDateStr_CST(today);
+    //     // TODO need to get task id from newly created task some how
+    //     await mutateCreatePlannedTask({ supabase, userID: user.id, taskID: task.id, date: dateStr })
+    // }
 
     useEffect(() => {
         if (listsError) setErrorText(listsError.toString())
@@ -113,7 +114,6 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
                                 <TaskCard
                                     key={task.id}
                                     task={task}
-                                    listName={lists?.find((list) => list.id === task.list_id)?.name}
                                 />
                             ))) : <p className='text-gray-500'>Its looking pretty empty here 🦗</p>
                         }
@@ -130,7 +130,7 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
                                 <TaskCard
                                     key={task.id}
                                     task={task}
-                                    listName={lists?.find((list) => list.id === task.list_id)?.name} />
+                                />
                             ))}
                         </div>
                     )}

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, forwardRef, useEffect, use } from 'react'
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { useQuery, useMutation, useQueryClient } from "react-query";

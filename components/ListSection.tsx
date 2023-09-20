@@ -3,7 +3,6 @@ import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { ErrorModal } from './ErrorModal'
 import { ListModal } from '@/components/ListModal'
 import { EllipsisVerticalIcon } from '@heroicons/react/24/outline'
-import cx from 'classnames/bind'
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { fetchLists, createList } from '@/lib/db'
 import { ListView } from '@/lib/types';
@@ -77,11 +76,11 @@ export default function ListSection({ currentListID, setCurrentListID, listView,
             <hr className="border-black" />
 
             <div className="flex flex-col gap-y-1.5 py-1.5">
-                <button className={cx("rounded px-1 text-left hover:text-gray-500 underline-offset-4", listView === ListView.Today ? "underline" : "")}
+                <button className={"rounded px-1 text-left hover:text-gray-500 underline-offset-4 " + (listView === ListView.Today) ? "underline" : ""}
                     onClick={() => { setListView(ListView.Today); setCurrentListID(null); setListsOverlay(false); }}>☀️ Today</button>
-                <button className={cx("rounded px-1 text-left hover:text-gray-500 underline-offset-4", listView === ListView.Tomorrow ? "underline" : "")}
+                <button className={"rounded px-1 text-left hover:text-gray-500 underline-offset-4 " + (listView === ListView.Tomorrow) ? "underline" : ""}
                     onClick={() => { setListView(ListView.Tomorrow); setCurrentListID(null); setListsOverlay(false); }}>🌓 Tomorrow</button>
-                <button className={cx("rounded px-1 text-left hover:text-gray-500 underline-offset-4", listView === ListView.Archive ? "underline" : "")}
+                <button className={"rounded px-1 text-left hover:text-gray-500 underline-offset-4 " + (listView === ListView.Archive) ? "underline" : ""}
                     onClick={() => { setListView(ListView.Archive); setCurrentListID(null); setListsOverlay(false); }}>🗄️ Archive</button>
                 {/* <button className={cx("rounded px-1 text-left hover:text-gray-500 underline-offset-4", listView === ListView.History ? "underline" : "")}
                     onClick={() => { setListView(ListView.History); setCurrentListID(null); setListsOverlay(false); }}>🦕 History</button> */}
@@ -92,7 +91,7 @@ export default function ListSection({ currentListID, setCurrentListID, listView,
 
             <div className="flex flex-col gap-y-1.5 py-1.5">
                 {lists && lists.map((list) => (
-                    <div key={list.id} className={cx("flex group gap-x-2 underline-offset-4 text-md sm:text-normal", list.id == currentListID ? "underline" : "")}>
+                    <div key={list.id} className={"flex group gap-x-2 underline-offset-4 text-md sm:text-normal " + (list.id == currentListID) ? "underline" : ""}>
                         <button className="rounded px-1 text-left w-full hover:text-gray-500 truncate"
                             onClick={() => { setListView(null); setCurrentListID(list.id); setListsOverlay(false); }}>
                             {list.name}

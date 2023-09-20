@@ -5,7 +5,7 @@ import { ErrorModal } from './ErrorModal'
 import { useEffect, useState } from 'react'
 import { TaskCard } from '@/components/TaskCard'
 import { ChevronDownIcon, ChevronRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
-import { TaskDV } from '@/lib/types';
+import { ListView, TaskDV } from '@/lib/types';
 import { isTaskCompleted } from '@/lib/utils';
 import ListSection from './ListSection';
 
@@ -24,7 +24,7 @@ function Loading() {
     )
 }
 
-export default function TaskSection({ currentListID, setCurrentListID, listView, setListView, listsOverlay, setListsOverlay }: { currentListID: number, setCurrentListID: (listID: number) => void, listView: string, setListView: (listView: string) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
+export default function TaskSection({ currentListID, setCurrentListID, listView, setListView, listsOverlay, setListsOverlay }: { currentListID: number | null, setCurrentListID: (listID: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
     const session = useSession()
     const supabase = useSupabaseClient()
     const queryClient = useQueryClient();
@@ -35,7 +35,9 @@ export default function TaskSection({ currentListID, setCurrentListID, listView,
     const [showCompleted, setShowCompleted] = useState(false)
     const [newTaskText, setNewTaskText] = useState('')
 
+    // @ts-ignore
     const { status: listStatus, data: list, error: listError } = useQuery(["list", currentListID], () => fetchList({ supabase, listID: currentListID }));
+    // @ts-ignore
     const { status: tasksStatus, data: tasks, error: taskError } = useQuery(["tasks", currentListID], () => fetchTasks({ supabase, listID: currentListID }));
 
     const user = session?.user

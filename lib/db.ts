@@ -228,6 +228,7 @@ export async function fetchMyDayTasks({ supabase, day }: { supabase: SupabaseCli
             .select('*')
             .not('today', 'is', null)
             .eq('archived', false)
+        // @ts-ignore
         return myDayTasks;
 
     } else if (day === Day.Tomorrow) {
@@ -236,6 +237,7 @@ export async function fetchMyDayTasks({ supabase, day }: { supabase: SupabaseCli
             .select('*')
             .not('tomorrow', 'is', null)
             .eq('archived', false)
+        // @ts-ignore
         return myDayTasks;
 
     } else {
