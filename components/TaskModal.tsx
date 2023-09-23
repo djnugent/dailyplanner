@@ -10,7 +10,7 @@ import { PlannedTask, Recurring, Day, TaskDV } from '@/lib/types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { date2SqlDateStr, sqlDateStr2Date } from '@/lib/utils';
 import { useGetLists, useGetTask, useUpdateTask, useDeleteTask, useCompleteTask, useUncompleteTask, useScheduleTask, useUnscheduleTask, useArchiveTask, useUnarchiveTask } from '@/lib/query';
-
+import { ResizableTextInput } from '@/components/ResizableTextInput';
 
 function Loading() {
     return (
@@ -213,17 +213,11 @@ export function TaskModal({ taskId, onClose }: { taskId: number, onClose: () => 
                                 </svg>
                             </div>
                         </div>
-                        <input type="text"
+                        <ResizableTextInput
                             placeholder="Eat Lasagna"
                             className={"bg-transparent text-lg md:text-3xl font-bold outline-none grow " + (task?.is_complete ? "line-through" : "")}
                             value={newTaskTitle}
                             onChange={(e) => setNewTaskText(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    e.currentTarget.blur();
-                                }
-                            }}
                             onBlur={() => handleUpdateTaskTitle()} />
                     </div>
 

@@ -1,12 +1,13 @@
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
-import { useQuery, useMutation, useQueryClient } from "react-query";
+import { useQueryClient } from "react-query";
 import { ErrorModal } from './ErrorModal'
-import { use, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TaskCard } from '@/components/TaskCard'
 import { ChevronDownIcon, ChevronRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
 import { ListView, TaskDV } from '@/lib/types';
 import ListSection from './ListSection';
-import { useGetTasks, useCreateTask, useGetList } from '@/lib/query';
+import { useGetTasks, useCreateTask, useGetList, useRollforwardTask } from '@/lib/query';
+import { sqlDateStr2Date } from '@/lib/utils';
 
 function Loading() {
     return (
@@ -38,6 +39,7 @@ export default function TaskSection({ currentListId, setCurrentListId, listView,
     const { status: listStatus, data: list, error: listError } = useGetList({ supabase, listId: currentListId });
     const { status: tasksStatus, data: tasks, error: taskError } = useGetTasks({ supabase, listId: currentListId });
     const { mutate: createTask } = useCreateTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: rollforwardTask } = useRollforwardTask({ supabase, queryClient, userId: session?.user?.id });
 
     const user = session?.user
 
@@ -67,6 +69,22 @@ export default function TaskSection({ currentListId, setCurrentListId, listView,
         setInCompletedTasks(inCompletedTasks)
         setCompletedTasks(completedTasks)
 
+    }, [tasks])
+
+    useEffect(() => {
+        const resetExpiredTasks = async () => {
+            tasks?.map(async (task) => {
+                if (task.is_complete || task.recurring == "once" || task.recurring == "perpetual" || !task.due_date) return
+                const dueDate = sqlDateStr2Date(task.due_date)
+                const today = new Date()
+                today.setHours(0, 0, 0, 0);
+                if (dueDate < today) {
+                    await rollforwardTask({ supabase, taskId: task.id })
+                }
+            }
+            )
+        }
+        resetExpiredTasks();
     }, [tasks])
 
     if (listStatus === "loading" || tasksStatus === "loading") return <Loading />;

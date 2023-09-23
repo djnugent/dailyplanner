@@ -128,6 +128,16 @@ async function _expandTasks({ supabase, tasks }: { supabase: SupabaseClient, tas
     return tasksDV
 }
 
+export function _compareTasks(a: TaskDV, b: TaskDV) {
+    if (a.order !== null && b.order !== null) return a.order - b.order
+    if (a.order !== null) return -1
+    if (b.order !== null) return 1;
+    if (a.due_date && b.due_date) return sqlDateStr2Date(a.due_date).getTime() - sqlDateStr2Date(b.due_date).getTime();
+    if (a.due_date) return -1;
+    if (b.due_date) return 1;
+    return a.id - b.id;
+}
+
 export async function getTasks({ supabase, listId }: { supabase: SupabaseClient, listId: number }): Promise<TaskDV[]> {
     const { data: tasks, error } = await supabase
         .from('tasks')
@@ -140,7 +150,8 @@ export async function getTasks({ supabase, listId }: { supabase: SupabaseClient,
         throw error
     }
 
-    return _expandTasks({ supabase, tasks });
+    const ret = await _expandTasks({ supabase, tasks });
+    return Promise.resolve(ret.sort(_compareTasks))
 }
 export async function getTask({ supabase, taskId }: { supabase: SupabaseClient, taskId: number }): Promise<TaskDV> {
     const { data: task, error } = await supabase
@@ -497,7 +508,8 @@ export async function getSchedule({ supabase, date }: { supabase: SupabaseClient
 
     const mergedTasks = scheduledTasks.concat(dueTasks);
 
-    return _expandTasks({ supabase, tasks: mergedTasks });
+    const ret = await _expandTasks({ supabase, tasks: mergedTasks });
+    return Promise.resolve(ret.sort(_compareTasks))
 }
 export async function getArchived({ supabase }: { supabase: SupabaseClient }): Promise<TaskDV[]> {
     const { data: tasks, error } = await supabase
@@ -510,5 +522,6 @@ export async function getArchived({ supabase }: { supabase: SupabaseClient }): P
         throw error
     }
 
-    return _expandTasks({ supabase, tasks });
+    const ret = await _expandTasks({ supabase, tasks });
+    return Promise.resolve(ret.sort(_compareTasks))
 }
