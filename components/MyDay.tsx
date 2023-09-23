@@ -120,7 +120,7 @@ export default function MyDay({ day, currentListId, setCurrentListId, listView, 
                     </div>
                     {dueTasks && dueTasks.length > 0 && (
                         <div className="mt-3 flex flex-col gap-y-2">
-                            <h2 className="text-xl font-bold">Due</h2>
+                            <h2 className="text-xl font-bold">On This Day</h2>
                             {dueTasks.map((task) => (
                                 <TaskCard
                                     key={task.id}
