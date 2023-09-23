@@ -1,13 +1,13 @@
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { useQuery, useMutation, useQueryClient } from "react-query";
-import { fetchLists, fetchMyDayTasks, createTask, createPlannedTask } from '@/lib/db'
 import { ErrorModal } from './ErrorModal'
 import { useEffect, useState } from 'react'
 import { TaskCard } from '@/components/TaskCard'
 import ListSection from '@/components/ListSection'
 import { ChevronDownIcon, ChevronRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
 import { TaskDV, List, Day, ListView } from '@/lib/types';
-import { dateToSQLDateStr_CST } from '@/lib/utils';
+import { useGetSchedule, useCreateAndScheduleTask, useGetList, useGetLists, } from '@/lib/query';
+import { date2SqlDateStr } from '@/lib/utils';
 
 function Loading() {
     return (
@@ -24,62 +24,58 @@ function Loading() {
     )
 }
 
-export default function MyDay({ day, currentListID, setCurrentListID, listView, setListView, listsOverlay, setListsOverlay }: { day: Day, currentListID: number | null, setCurrentListID: (listID: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
+export default function MyDay({ day, currentListId, setCurrentListId, listView, setListView, listsOverlay, setListsOverlay }: { day: Day, currentListId: number | null, setCurrentListId: (listId: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
 
 
     const session = useSession()
     const supabase = useSupabaseClient()
     const queryClient = useQueryClient();
     const [errorText, setErrorText] = useState('')
-    const [newTaskList, setNewTaskList] = useState<List | null>(null)
+    const [newTaskListId, setNewTaskListId] = useState<number | null>(null)
     const [inCompletedTasks, setInCompletedTasks] = useState<TaskDV[]>([])
     const [completedTasks, setCompletedTasks] = useState<TaskDV[]>([])
+    const [dueTasks, setDueTasks] = useState<TaskDV[]>([])
     const [showCompleted, setShowCompleted] = useState(false)
     const [newTaskText, setNewTaskText] = useState('')
+    const [currentDate, setCurrentDate] = useState(new Date())
 
-    const { status: tasksStatus, data: tasks, error: taskError } = useQuery(["tasks", day], () => fetchMyDayTasks({ supabase, day }));
-    const { status: listsStatus, data: lists, error: listsError } = useQuery("lists", () => fetchLists({ supabase }));
+    const { status: listsStatus, data: lists, error: listsError } = useGetLists({ supabase });
+    const { status: tasksStatus, data: tasks, error: taskError } = useGetSchedule({ supabase, date: currentDate });
+    const { mutate: createAndScheduleTask } = useCreateAndScheduleTask({ supabase, queryClient, userId: session?.user?.id });
 
     const user = session?.user
-
-    const { mutate: mutateCreateTask } = useMutation(createTask, {
-        onSuccess: () => {
-            queryClient.invalidateQueries(["tasks", newTaskList]);
-        },
-    });
-
-    const { mutate: mutateCreatePlannedTask, data: newPlannedTask } = useMutation(createPlannedTask, {
-        onSuccess: () => {
-            queryClient.invalidateQueries(["tasks", newTaskList?.id]);
-            queryClient.invalidateQueries(["tasks", Day.Today]);
-            queryClient.invalidateQueries(["tasks", Day.Tomorrow]);
-        },
-    });
 
 
     useEffect(() => {
         // Set new task list to the first list
         if (lists && lists.length > 0) {
-            setNewTaskList(lists[0])
+            setNewTaskListId(lists[0].id)
         }
 
     }, [lists])
 
-    // const handleAddTask = async () => {
-    //     if (!user || !newTaskList) return
+    useEffect(() => {
+        if (day) {
+            const d = new Date()
+            d.setHours(0, 0, 0, 0);
+            if (day === 'Tomorrow') {
+                d.setDate(d.getDate() + 1)
+            }
+            setCurrentDate(d)
+        }
+    }, [day])
 
-    //     const text = newTaskText.trim()
-    //     setNewTaskText('')
-    //     if (!text) return
+    const handleAddTask = async () => {
+        if (!user || !newTaskListId) return
 
-    //     await mutateCreateTask({ supabase, userID: user.id, listID: newTaskList.id, text: newTaskText, recurring: newTaskList.recurring_default })
+        const text = newTaskText.trim()
+        setNewTaskText('')
+        if (!text) return
 
-    //     const today = new Date()
-    //     if (day === Day.Tomorrow) today.setDate(today.getDate() + 1)
-    //     const dateStr = dateToSQLDateStr_CST(today);
-    //     // TODO need to get task id from newly created task some how
-    //     await mutateCreatePlannedTask({ supabase, userID: user.id, taskID: task.id, date: dateStr })
-    // }
+        const list = lists?.find((list) => list.id === newTaskListId)
+
+        await createAndScheduleTask({ listId: newTaskListId, title: newTaskText, date: currentDate, recurring: list?.recurring_default })
+    }
 
     useEffect(() => {
         if (listsError) setErrorText(listsError.toString())
@@ -88,9 +84,12 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
 
     useEffect(() => {
         if (!tasks) return
-        const inCompletedTasks = tasks.filter((task: TaskDV) => !task.archived)
-        const completedTasks = tasks.filter((task: TaskDV) => task.archived)
+        const currentDateStr = date2SqlDateStr(currentDate)
+        const dueTasks = tasks.filter((task: TaskDV) => (!task.is_complete && task.due_date && task.due_date <= currentDateStr))
+        const inCompletedTasks = tasks.filter((task: TaskDV) => (!task.is_complete && !(task.due_date && task.due_date <= currentDateStr)))
+        const completedTasks = tasks.filter((task: TaskDV) => task.is_complete)
 
+        setDueTasks(dueTasks)
         setInCompletedTasks(inCompletedTasks)
         setCompletedTasks(completedTasks)
 
@@ -114,10 +113,22 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
                                 <TaskCard
                                     key={task.id}
                                     task={task}
+                                    disableCheckbox={day == Day.Tomorrow}
                                 />
                             ))) : <p className='text-gray-500'>Its looking pretty empty here 🦗</p>
                         }
                     </div>
+                    {dueTasks && dueTasks.length > 0 && (
+                        <div className="mt-3 flex flex-col gap-y-2">
+                            <h2 className="text-xl font-bold">Due</h2>
+                            {dueTasks.map((task) => (
+                                <TaskCard
+                                    key={task.id}
+                                    task={task}
+                                />
+                            ))}
+                        </div>
+                    )}
                     {completedTasks && completedTasks.length > 0 && (
                         <div className="mt-3 flex flex-col gap-y-2">
                             <div className="flex flex-row items-center gap-x-2">
@@ -135,8 +146,12 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
                         </div>
                     )}
                 </div>
-                {/* <div className="w-full rounded-md bg-white p-2 my-4 drop-shadow-md flex items-center">
-                    <select>
+                <div className="w-full rounded-md bg-white p-2 my-4 drop-shadow-md flex items-center">
+                    <select
+                        className="outline-none"
+                        onChange={(e) => setNewTaskListId(parseInt(e.target.value))}
+                        value={newTaskListId || "disabled"} >
+                        <option value="disabled" disabled></option>
                         {lists && lists.map((list) => (
                             <option key={list.id} value={list.id}>{list.name}</option>
                         ))}
@@ -144,7 +159,7 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
                     <input
                         type="text"
                         placeholder="New task..."
-                        className="w-full outline-none"
+                        className="w-full outline-none ml-1"
                         value={newTaskText}
                         onChange={(e) => setNewTaskText(e.target.value)}
                         onKeyDown={(e) => {
@@ -154,13 +169,13 @@ export default function MyDay({ day, currentListID, setCurrentListID, listView, 
                             }
                         }}
                     />
-                </div> */}
-            </div>
+                </div>
+            </div >
             {listsOverlay &&
                 <div className='fixed w-screen h-[100svh] z-30 bg-gray-200 p-10'>
                     <ListSection
-                        currentListID={currentListID}
-                        setCurrentListID={setCurrentListID}
+                        currentListId={currentListId}
+                        setCurrentListId={setCurrentListId}
                         listView={listView}
                         setListView={setListView}
                         setListsOverlay={setListsOverlay}

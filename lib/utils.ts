@@ -1,21 +1,14 @@
 
 import { PlannedTask, TaskDV } from "@/lib/types"
 
-export function isTaskCompleted(task: TaskDV): boolean {
-    if (!task) return false
-
-    if (!task.most_recent) return false
-
-    const pt = task.most_recent as PlannedTask
-    if (!pt.complete_up_to) return false
-
-    const d = new Date(pt.complete_up_to)
-    const today = new Date()
-    return d >= today
+export function date2SqlDateStr(date: Date) {
+    const str = date.toLocaleDateString('en-US');
+    const [month, day, year] = str.split('/');
+    return `${year}-${month}-${day}`;
 }
 
-export function dateToSQLDateStr_CST(date: Date): string {
-    const cstDateString = date.toLocaleString('en-US', { timeZone: 'America/Chicago' });
-    const sqlDate = cstDateString.split(',')[0].replace(/\//g, '-');
-    return sqlDate
+export function sqlDateStr2Date(dateStr: string) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date
 }

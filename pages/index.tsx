@@ -11,13 +11,13 @@ import MyDay from '@/components/MyDay'
 export default function Home() {
   const session = useSession()
   const supabase = useSupabaseClient()
-  const [currentListID, setCurrentListID] = useState<number | null>(null)
+  const [currentListId, setCurrentListId] = useState<number | null>(null)
   const [listView, setListView] = useState<ListView | null>(null)
   const [listsOverlay, setListsOverlay] = useState<boolean>(false)
 
   useEffect(() => {
-    if (!listView && !currentListID) setListView(ListView.Today)
-  }, [listView, currentListID])
+    if (!listView && !currentListId) setListView(ListView.Today)
+  }, [listView, currentListId])
 
   return (
     <>
@@ -31,8 +31,8 @@ export default function Home() {
             <div className="flex h-full w-full">
               <div className="sm:flex h-full basis-1/3 flex-col justify-start border-r p-4 hidden">
                 <ListSection
-                  currentListID={currentListID}
-                  setCurrentListID={setCurrentListID}
+                  currentListId={currentListId}
+                  setCurrentListId={setCurrentListId}
                   listView={listView}
                   setListView={setListView}
                   setListsOverlay={setListsOverlay}
@@ -41,8 +41,8 @@ export default function Home() {
 
               {listView === ListView.Today ? <MyDay
                 day={Day.Today}
-                currentListID={currentListID}
-                setCurrentListID={setCurrentListID}
+                currentListId={currentListId}
+                setCurrentListId={setCurrentListId}
                 listView={listView}
                 setListView={setListView}
                 listsOverlay={listsOverlay}
@@ -50,16 +50,16 @@ export default function Home() {
               /> : null}
               {listView === ListView.Tomorrow ? <MyDay
                 day={Day.Tomorrow}
-                currentListID={currentListID}
-                setCurrentListID={setCurrentListID}
+                currentListId={currentListId}
+                setCurrentListId={setCurrentListId}
                 listView={listView}
                 setListView={setListView}
                 listsOverlay={listsOverlay}
                 setListsOverlay={setListsOverlay}
               /> : null}
               {listView === ListView.Archive ? <Archive
-                currentListID={currentListID}
-                setCurrentListID={setCurrentListID}
+                currentListId={currentListId}
+                setCurrentListId={setCurrentListId}
                 listView={listView}
                 setListView={setListView}
                 listsOverlay={listsOverlay}
@@ -68,9 +68,9 @@ export default function Home() {
 
               {listView === ListView.History ? <History /> : null}
 
-              {!listView && currentListID && <TaskSection
-                currentListID={currentListID}
-                setCurrentListID={setCurrentListID}
+              {!listView && currentListId && <TaskSection
+                currentListId={currentListId}
+                setCurrentListId={setCurrentListId}
                 listView={listView}
                 setListView={setListView}
                 listsOverlay={listsOverlay}

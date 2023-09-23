@@ -1,8 +1,6 @@
-// @ts-nocheck
 import { useState, forwardRef, useEffect, use } from 'react'
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { useQuery, useMutation, useQueryClient } from "react-query";
-import { fetchLists, fetchTask, updateTask, deleteTask, createPlannedTask, updatePlannedTask, deletePlannedTask } from '@/lib/db'
 import { ErrorModal } from '@/components/ErrorModal'
 import { DeleteModal } from '@/components/DeleteModal'
 import cx from 'classnames/bind'
@@ -10,7 +8,8 @@ import DatePicker from "react-datepicker";
 import 'react-datepicker/dist/react-datepicker.css'
 import { PlannedTask, Recurring, Day, TaskDV } from '@/lib/types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { dateToSQLDateStr_CST, isTaskCompleted } from '@/lib/utils';
+import { date2SqlDateStr, sqlDateStr2Date } from '@/lib/utils';
+import { useGetLists, useGetTask, useUpdateTask, useDeleteTask, useCompleteTask, useUncompleteTask, useScheduleTask, useUnscheduleTask, useArchiveTask, useUnarchiveTask } from '@/lib/query';
 
 
 function Loading() {
@@ -24,26 +23,34 @@ function Loading() {
     )
 }
 
-export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => void }) {
+export function TaskModal({ taskId, onClose }: { taskId: number, onClose: () => void }) {
     const supabase = useSupabaseClient()
     const session = useSession()
     const queryClient = useQueryClient();
-    const [isCompleted, setIsCompleted] = useState(false)
     const [errorText, setErrorText] = useState('')
-    const [newTaskText, setNewTaskText] = useState('')
+    const [newTaskTitle, setNewTaskText] = useState('')
     const [newTaskNotes, setNewTaskNotes] = useState('')
     const [taskDate, setTaskDate] = useState<Date | null>(null)
     const [completedAtStr, setCompletedAtStr] = useState<string | null>(null)
     const [confirmDelete, setConfirmDelete] = useState(false)
 
-    const { status: taskStatus, data: task, error: taskError } = useQuery(["task", taskID], () => fetchTask({ supabase, taskID }));
-    const { status: listsStatus, data: lists, error: listsError } = useQuery("lists", () => fetchLists({ supabase }));
+    const { status: taskStatus, data: task, error: taskError } = useGetTask({ supabase, taskId: taskId });
+    const { status: listsStatus, data: lists, error: listsError } = useGetLists({ supabase });
+    const { mutate: updateTask } = useUpdateTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: deleteTask } = useDeleteTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: completeTask } = useCompleteTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: uncompleteTask } = useUncompleteTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: scheduleTask } = useScheduleTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: unscheduleTask } = useUnscheduleTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: archiveTask } = useArchiveTask({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: unarchiveTask } = useUnarchiveTask({ supabase, queryClient, userId: session?.user?.id });
+
 
     const user = session?.user
 
     const DateInput = forwardRef(
         ({ value, onClick }: { value: string, onClick: () => void }, ref: any) => (
-            <button name="adddate" className={cx("w-fit ml-2", value ? "text-black" : "text-gray-500")} onClick={onClick} ref={ref}>
+            <button name="adddate" className={"w-fit ml-2 " + (value ? "text-black" : "text-gray-500")} onClick={onClick} ref={ref}>
                 {value || "+ Add date"}
             </button>
         )
@@ -52,221 +59,138 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
 
     useEffect(() => {
         const populateCompleteUpToDateStr = () => {
-            if (!task?.most_recent) return
-            const pt = task.most_recent as PlannedTask
-            if (pt.complete_up_to) {
-                var str = "Completed at "
-                const compDate = new Date(pt.complete_up_to)
-                str += compDate.toLocaleDateString()
-                if (task.recurring !== 'once') {
-                    const today = new Date();
-
-                    // set time to midnight for accurate day difference
-                    today.setHours(0, 0, 0, 0);
-                    compDate.setHours(0, 0, 0, 0);
-                    const differenceInMilliseconds = today - compDate;
-                    const differenceInDays = differenceInMilliseconds / (1000 * 60 * 60 * 24);
-                    const daysRemaining = Math.floor(differenceInDays + 1);
-                    str += ` (resets in ${daysRemaining} days)`
-                }
-                setCompletedAtStr(str)
-            }
-            else {
+            if (!task?.completed_at || !task?.completed_until) {
                 setCompletedAtStr(null)
+                return
             }
+            var str = "Completed on "
+            const compDate = sqlDateStr2Date(task.completed_at)
+            str += compDate.toDateString()
+            if (task.recurring !== 'once') {
+                const today = new Date();
+                const until = sqlDateStr2Date(task.completed_until);
+
+                // set time to midnight for accurate day difference
+                today.setHours(0, 0, 0, 0);
+                compDate.setHours(0, 0, 0, 0);
+                const differenceInMilliseconds = until.getTime() - today.getTime();
+                const differenceInDays = differenceInMilliseconds / (1000 * 60 * 60 * 24);
+                const daysRemaining = Math.floor(differenceInDays + 1);
+                str += ` (resets in ${daysRemaining} days)`
+            }
+            setCompletedAtStr(str)
         }
         populateCompleteUpToDateStr();
     }, [task])
 
 
-    const mutatedTaskCacheUpdate = {
-        onSuccess: async () => {
-            const updatedTaskDV = await fetchTask({ supabase, taskID });
+    const handleUpdateTaskTitle = async () => {
+        if (!taskId) return
 
-            const updateDataForKey = (key: any[]) => {
-                queryClient.setQueryData(key, (oldData: TaskDV[] | undefined) => {
-                    return oldData?.map(task => task.id === updatedTaskDV.id ? updatedTaskDV : task);
-                });
-            };
-
-            // Update individual task cache
-            queryClient.setQueryData(["task", updatedTaskDV.id], updatedTaskDV);
-
-            // Update lists of tasks caches
-            updateDataForKey(["tasks", updatedTaskDV.list_id]);
-            queryClient.invalidateQueries(["tasks", Day.Today]);
-            queryClient.invalidateQueries(["tasks", Day.Tomorrow]);
-            queryClient.invalidateQueries(["tasks", "archive"]);
-
-        },
-    };
-
-
-    const deleteTaskCacheUpdate = {
-        onSuccess: () => {
-            const listID = task?.list_id;
-            // Function to filter out the deleted task from cached lists
-            const filterDeletedTask = (oldData: TaskDV[] | undefined) => {
-                return oldData?.filter(task => task.id !== taskID);
-            };
-
-            queryClient.setQueryData(["task", taskID], null);  // The task doesn't exist anymore
-            queryClient.setQueryData(["tasks", listID], filterDeletedTask);  // assuming you know the listID
-            queryClient.setQueryData(["tasks", Day.Today], filterDeletedTask);
-            queryClient.setQueryData(["tasks", Day.Tomorrow], filterDeletedTask);
-            queryClient.setQueryData(["tasks", "archive"], filterDeletedTask);
-        },
-    };
-
-    const { mutate: mutateUpdateTask } = useMutation(updateTask, mutatedTaskCacheUpdate);
-    const { mutate: mutateDeleteTask } = useMutation(deleteTask, deleteTaskCacheUpdate);
-    const { mutate: mutateCreatePlannedTask } = useMutation(createPlannedTask, mutatedTaskCacheUpdate);
-    const { mutate: mutateUpdatePlannedTask } = useMutation(updatePlannedTask, mutatedTaskCacheUpdate);
-    const { mutate: mutateDeletePlannedTask } = useMutation(deletePlannedTask, mutatedTaskCacheUpdate);
-
-    const handleUpdateTaskText = async () => {
-        if (!taskID) return
-
-        const text = newTaskText.trim()
+        const text = newTaskTitle.trim()
         setNewTaskText(text)
         if (!text) {
             setErrorText('Task text cannot be empty')
             return
         }
 
-        await mutateUpdateTask({ supabase, taskID, updates: { text: text } })
+        await updateTask({ taskId, updates: { title: text } })
     }
 
-    const handleUpdateTaskList = async (listID: number) => {
-        if (!taskID) return
-        await mutateUpdateTask({ supabase, taskID, updates: { list_id: listID } })
+    const handleUpdateTaskList = async (listId: number) => {
+        if (!taskId) return
+        await updateTask({ taskId, updates: { list_id: listId } })
     }
 
     const handleUpdateTaskDate = async (date: Date | null) => {
-        if (!taskID) return
-        const dateStr = dateToSQLDateStr_CST(date);
-        await mutateUpdateTask({ supabase, taskID, updates: { date: dateStr } })
+        if (!taskId) return
+        await updateTask({ taskId, updates: { due_date: date } })
     }
 
     const handleRemoveTaskDate = async () => {
-        if (!taskID) return
+        if (!taskId) return
         setTaskDate(null)
-        await mutateUpdateTask({ supabase, taskID, updates: { date: null } })
+        const recurring = (task?.recurring == 'once' || task?.recurring == 'perpetual') ? task?.recurring : 'once'
+        await updateTask({ taskId, updates: { due_date: null, recurring } })
     }
 
     const handleUpdateTaskRecurring = async (recurring: Recurring) => {
-        if (!taskID) return
-        await mutateUpdateTask({ supabase, taskID, updates: { recurring: recurring } })
+        if (!taskId) return
+        await updateTask({ taskId, updates: { recurring: recurring } })
     }
 
     const handleUpdateTaskArchived = async (archived: boolean) => {
-        if (!taskID) return
-        await mutateUpdateTask({ supabase, taskID, updates: { archived: archived } })
+        if (!taskId) return
+        if (archived) await archiveTask({ taskId })
+        else await unarchiveTask({ taskId })
     }
 
     const handleUpdateTaskNotes = async (notes: string) => {
-        if (!taskID) return
-        await mutateUpdateTask({ supabase, taskID, updates: { notes: notes } })
+        if (!taskId) return
+        await updateTask({ taskId, updates: { notes: notes } })
     }
 
     const handleDeleteTask = async () => {
-        if (!taskID) return
-        await mutateDeleteTask({ supabase, taskID: taskID })
+        if (!taskId) return
+        await deleteTask({ taskId: taskId })
         onClose()
     }
 
     const handleAddToToday = async () => {
         if (!user || !task || !task.id) return
         const today = new Date()
-        const dateStr = dateToSQLDateStr_CST(today);
-        await mutateCreatePlannedTask({ supabase, userID: user?.id, taskID: task.id, date: dateStr, })
+        await scheduleTask({ taskId: task.id, date: today })
     }
 
     const handleAddToTomorrow = async () => {
         if (!user || !task || !task.id) return
         const tomorrow = new Date()
         tomorrow.setDate(tomorrow.getDate() + 1)
-        const dateStr = dateToSQLDateStr_CST(tomorrow);
-        await mutateCreatePlannedTask({ supabase, userID: user?.id, taskID: task.id, date: dateStr, })
+        await scheduleTask({ taskId: task.id, date: tomorrow })
     }
 
     const handleRemoveFromToday = async () => {
-        if (!user || !task?.today) return
-        const pt = task.today as PlannedTask
-        await mutateDeletePlannedTask({ supabase, plannedTaskID: pt.id })
+        if (!user || !task?.scheduled_today) return
+        const today = new Date()
+        await unscheduleTask({ taskId: task.id, date: today })
     }
 
     const handleRemoveFromTomorrow = async () => {
-        if (!user || !task?.tomorrow) return
-        const pt = task.tomorrow as PlannedTask
-        await mutateDeletePlannedTask({ supabase, plannedTaskID: pt.id })
+        if (!user || !task?.scheduled_tomorrow) return
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        await unscheduleTask({ taskId: task.id, date: tomorrow })
     }
 
-    useEffect(() => {
-        setIsCompleted(isTaskCompleted(task))
-    }, [task])
-
     const toggle = async () => {
-        if (isCompleted) {
-            console.log('handleUncompleteTask')
+        if (task?.is_complete) {
             await handleUncompleteTask()
         }
         else {
-            console.log('handleCompleteTask')
             await handleCompleteTask()
         }
     }
 
     const handleCompleteTask = async () => {
         if (!user || !task?.id) return
-
-        // Calculated completed_up_to date
-        let d = new Date()
-        if (task.recurring === 'once') {
-            d.setFullYear(4000) // far in the future
-        }
-        else if (task.recurring === 'perpetual') {
-            d = new Date(d.getTime() + (24 * 60 * 60 * 1000)); // tomorrow
-        }
-        else {
-            if (!task.date) {
-                setErrorText('Task has no date but is recurring. Cant calculate completed_up_to date')
-            }
-            d = new Date(task.date as string) // sql string to date
-        }
-        const completeUpToDateStr = dateToSQLDateStr_CST(d);
-
-        if (!task.today) {
-            // if not, create plannedtask for today
-            const today = new Date()
-            const dateStr = dateToSQLDateStr_CST(today);
-            await mutateCreatePlannedTask({ supabase, userID: user?.id, taskID: task.id, date: dateStr, completeUpTo: completeUpToDateStr })
-        }
-        else {
-            const pt = task.today as PlannedTask
-            await mutateUpdatePlannedTask({ supabase, plannedTaskID: pt.id, updates: { complete_up_to: completeUpToDateStr } })
-        }
-
+        await completeTask({ taskId: task.id, recurring: task.recurring, dueDate: task.due_date })
     }
 
     const handleUncompleteTask = async () => {
-        if (!user || !task?.id || !task?.most_recent) return
-
-        // Update task to be uncompleted
-        const pt = task.most_recent as PlannedTask
-        await mutateUpdatePlannedTask({ supabase, plannedTaskID: pt.id, updates: { complete_up_to: null } })
+        if (!user || !task?.id) return
+        await uncompleteTask({ taskId: task.id })
     }
 
 
     useEffect(() => {
-        if (task?.text) {
-            setNewTaskText(task.text)
+        if (task?.title) {
+            setNewTaskText(task.title)
         }
         if (task?.notes) {
             setNewTaskNotes(task.notes || "")
         }
-        if (task?.date) {
-            setTaskDate(new Date(task.date))
+        if (task?.due_date) {
+            setTaskDate(sqlDateStr2Date(task.due_date))
         }
     }, [task])
 
@@ -281,7 +205,7 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                     <div className="flex flex-nowrap">
                         <div className="inline-flex items-center relative mr-2">
                             <input type="checkbox" className="peer h-5 w-5 cursor-pointer appearance-none rounded-full border border-gray-400 checked:border-green-500 checked:bg-green-500 checked:before:bg-green-500"
-                                checked={isCompleted}
+                                checked={task?.is_complete}
                                 onChange={() => toggle()} />
                             <div className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100 -translate-x-1/2 left-1/2 -translate-y-1/2 top-1/2">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" stroke="currentColor" strokeWidth="1">
@@ -291,8 +215,8 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                         </div>
                         <input type="text"
                             placeholder="Eat Lasagna"
-                            className={cx("bg-transparent text-lg md:text-3xl font-bold outline-none grow ", isCompleted ? "line-through" : "")}
-                            value={newTaskText}
+                            className={"bg-transparent text-lg md:text-3xl font-bold outline-none grow " + (task?.is_complete ? "line-through" : "")}
+                            value={newTaskTitle}
                             onChange={(e) => setNewTaskText(e.target.value)}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
@@ -300,7 +224,7 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                                     e.currentTarget.blur();
                                 }
                             }}
-                            onBlur={() => handleUpdateTaskText()} />
+                            onBlur={() => handleUpdateTaskTitle()} />
                     </div>
 
                     <div className="flex items-center">
@@ -324,6 +248,7 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                         <DatePicker
                             selected={taskDate}
                             onChange={(date: Date) => handleUpdateTaskDate(date)}
+                            //@ts-ignore
                             customInput={<DateInput />}
                         />
                         {taskDate && <XMarkIcon className="h-5 w-5 ml-2 cursor-pointer" onClick={() => handleRemoveTaskDate()} />}
@@ -339,13 +264,12 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                             <option disabled value={"disabled"} className='hidden'></option>
                             <option value="once">Once</option>
                             <option value="perpetual">Perpetual</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
+                            <option value="daily" disabled={!task?.due_date}>Daily</option>
+                            <option value="weekly" disabled={!task?.due_date}>Weekly</option>
+                            <option value="monthly" disabled={!task?.due_date}>Monthly</option>
+                            <option value="yearly" disabled={!task?.due_date}>Yearly</option>
                         </select>
                     </div>
-
 
 
                     <div className="flex justify-start gap-x-6">
@@ -355,9 +279,9 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                             </svg>
                             <p className="ml-2">Add to:</p>
                         </div>
-                        <button className={cx("w-fit flex items-center gap-x-1",
-                            task?.today ? " text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300")}
-                            onClick={() => task?.today ? handleRemoveFromToday() : handleAddToToday()}>
+                        <button className={"w-fit flex items-center gap-x-1 " +
+                            (task?.scheduled_today ? "text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300")}
+                            onClick={() => task?.scheduled_today ? handleRemoveFromToday() : handleAddToToday()}>
                             <svg className="h-5 w-5" viewBox="0 0 24 23" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <rect x="1" y="3" width="22" height="19" rx="2" stroke="currentColor" strokeWidth="2" />
                                 <rect x="4.5" y="0.5" width="1" height="4" rx="0.5" stroke="currentColor" />
@@ -367,9 +291,9 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                             </svg>
                             <p>Today</p>
                         </button>
-                        <button className={cx("w-fit flex items-center gap-x-1",
-                            task?.tomorrow ? " text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300")}
-                            onClick={() => task?.tomorrow ? handleRemoveFromTomorrow() : handleAddToTomorrow()}>
+                        <button className={"w-fit flex items-center gap-x-1 " +
+                            (task?.scheduled_tomorrow ? " text-green-500 hover:text-green-300" : "text-gray-500 hover:text-gray-300")}
+                            onClick={() => task?.scheduled_tomorrow ? handleRemoveFromTomorrow() : handleAddToTomorrow()}>
                             <svg className="h-5 w-5" viewBox="0 0 24 23" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <rect x="1" y="3" width="22" height="19" rx="2" stroke="currentColor" strokeWidth="2" />
                                 <rect x="4.5" y="0.5" width="1" height="4" rx="0.5" stroke="currentColor" />
@@ -392,6 +316,7 @@ export function TaskModal({ taskID, onClose }: { taskID: number, onClose: () => 
                     </textarea>
 
                     <div>
+                        {/* @ts-ignore */}
                         <p className="text-gray-500 text-sm">{"Created " + new Date(task?.inserted_at).toLocaleString()}</p>
                         <p className="text-gray-500 text-sm">{completedAtStr}</p>
                         {task?.archived && <p className="text-gray-500 text-sm">Archived</p>}

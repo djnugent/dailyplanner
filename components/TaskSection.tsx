@@ -1,13 +1,12 @@
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { useQuery, useMutation, useQueryClient } from "react-query";
-import { fetchList, fetchTasks, createTask } from '@/lib/db'
 import { ErrorModal } from './ErrorModal'
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { TaskCard } from '@/components/TaskCard'
 import { ChevronDownIcon, ChevronRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
 import { ListView, TaskDV } from '@/lib/types';
-import { isTaskCompleted } from '@/lib/utils';
 import ListSection from './ListSection';
+import { useGetTasks, useCreateTask, useGetList } from '@/lib/query';
 
 function Loading() {
     return (
@@ -24,7 +23,7 @@ function Loading() {
     )
 }
 
-export default function TaskSection({ currentListID, setCurrentListID, listView, setListView, listsOverlay, setListsOverlay }: { currentListID: number | null, setCurrentListID: (listID: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
+export default function TaskSection({ currentListId, setCurrentListId, listView, setListView, listsOverlay, setListsOverlay }: { currentListId: number | null, setCurrentListId: (listId: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
     const session = useSession()
     const supabase = useSupabaseClient()
     const queryClient = useQueryClient();
@@ -36,26 +35,19 @@ export default function TaskSection({ currentListID, setCurrentListID, listView,
     const [newTaskText, setNewTaskText] = useState('')
 
     // @ts-ignore
-    const { status: listStatus, data: list, error: listError } = useQuery(["list", currentListID], () => fetchList({ supabase, listID: currentListID }));
-    // @ts-ignore
-    const { status: tasksStatus, data: tasks, error: taskError } = useQuery(["tasks", currentListID], () => fetchTasks({ supabase, listID: currentListID }));
+    const { status: listStatus, data: list, error: listError } = useGetList({ supabase, listId: currentListId });
+    const { status: tasksStatus, data: tasks, error: taskError } = useGetTasks({ supabase, listId: currentListId });
+    const { mutate: createTask } = useCreateTask({ supabase, queryClient, userId: session?.user?.id });
 
     const user = session?.user
 
-    const { mutate: mutateCreateTask } = useMutation(createTask, {
-        onSuccess: () => {
-            queryClient.invalidateQueries(["tasks", currentListID]);
-        },
-    });
-
     const handleAddTask = async () => {
-        if (!user || !currentListID || !list) return
+        if (!user || !currentListId || !list) return
 
         const text = newTaskText.trim()
         setNewTaskText('')
         if (!text) return
-
-        await mutateCreateTask({ supabase, userID: user.id, listID: currentListID, text: newTaskText, recurring: list.recurring_default })
+        await createTask({ listId: currentListId, title: newTaskText, data: { recurring: list.recurring_default } })
     }
 
     useEffect(() => {
@@ -69,8 +61,8 @@ export default function TaskSection({ currentListID, setCurrentListID, listView,
 
     useEffect(() => {
         if (!tasks) return
-        const inCompletedTasks = tasks.filter((task) => !isTaskCompleted(task))
-        const completedTasks = tasks.filter((task) => isTaskCompleted(task))
+        const inCompletedTasks = tasks.filter((task: TaskDV) => task.is_complete === false)
+        const completedTasks = tasks.filter((task: TaskDV) => task.is_complete === true)
 
         setInCompletedTasks(inCompletedTasks)
         setCompletedTasks(completedTasks)
@@ -135,8 +127,8 @@ export default function TaskSection({ currentListID, setCurrentListID, listView,
             {listsOverlay &&
                 <div className='fixed w-screen h-[100svh] z-30 bg-gray-200 p-10'>
                     <ListSection
-                        currentListID={currentListID}
-                        setCurrentListID={setCurrentListID}
+                        currentListId={currentListId}
+                        setCurrentListId={setCurrentListId}
                         listView={listView}
                         setListView={setListView}
                         setListsOverlay={setListsOverlay}

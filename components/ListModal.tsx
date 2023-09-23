@@ -5,6 +5,7 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { fetchList, updateList, deleteList } from '@/lib/db'
 import { ListType, Recurring } from '@/lib/types'
+import { useDeleteList, useGetList, useUpdateList } from '@/lib/query';
 
 function Loading() {
     return (
@@ -18,30 +19,20 @@ function Loading() {
 }
 
 
-export function ListModal({ listID, currentListID, setCurrentListID, onClose }: { listID: number, currentListID: number | null, setCurrentListID: (listID: number | null) => void, onClose: () => void }) {
+export function ListModal({ listId, currentListId, setCurrentListId, onClose }: { listId: number, currentListId: number | null, setCurrentListId: (listId: number | null) => void, onClose: () => void }) {
     const session = useSession()
     const supabase = useSupabaseClient()
     const queryClient = useQueryClient();
     const [errorText, setErrorText] = useState('')
-    const { status, data: list, error } = useQuery(["list", listID], () => fetchList({ supabase, listID }));
+    const { status, data: list, error } = useGetList({ supabase, listId });
+    const { mutate: updateList } = useUpdateList({ supabase, queryClient, userId: session?.user?.id });
+    const { mutate: deleteList } = useDeleteList({ supabase, queryClient, userId: session?.user?.id });
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [listName, setListName] = useState("");
 
     const user = session?.user
 
-    const { mutate: mutateUpdateList } = useMutation(updateList, {
-        onSuccess: () => {
-            queryClient.invalidateQueries("lists");
-            queryClient.invalidateQueries(["list", listID]);
-        },
-    });
 
-    const { mutate: mutateDeleteList } = useMutation(deleteList, {
-        onSuccess: () => {
-            queryClient.invalidateQueries("lists");
-            queryClient.invalidateQueries(["list", listID]);
-        },
-    });
 
     const handleUpdateListName = async () => {
         if (!user) return
@@ -53,23 +44,23 @@ export function ListModal({ listID, currentListID, setCurrentListID, onClose }: 
             return
         }
 
-        await mutateUpdateList({ supabase, listID, updates: { name: name } })
+        await updateList({ supabase, listId, updates: { name: name } })
     }
 
     const handleUpdateListType = async (type: ListType) => {
         if (!user) return
-        await mutateUpdateList({ supabase, listID, updates: { type: type } })
+        await updateList({ supabase, listId, updates: { type: type } })
     }
 
     const handleUpdateListRecurring = async (recurring: Recurring) => {
         if (!user) return
-        await mutateUpdateList({ supabase, listID, updates: { recurring_default: recurring } })
+        await updateList({ supabase, listId, updates: { recurring_default: recurring } })
     }
 
     const handleDeleteList = async () => {
         if (!user) return
-        await mutateDeleteList({ supabase, listID: listID })
-        if (listID === currentListID) setCurrentListID(null);
+        await deleteList({ supabase, listId })
+        if (listId === currentListId) setCurrentListId(null);
         onClose()
     }
 
@@ -100,7 +91,7 @@ export function ListModal({ listID, currentListID, setCurrentListID, onClose }: 
                         onBlur={() => handleUpdateListName()}
                     />
 
-                    <div className="flex items-center">
+                    {/* <div className="flex items-center">
                         <div className="flex justify-between">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="h-6 w-6">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -115,7 +106,7 @@ export function ListModal({ listID, currentListID, setCurrentListID, onClose }: 
                             <option value="todo">Todo List</option>
                             <option value="toget">To Get List</option>
                         </select>
-                    </div>
+                    </div> */}
 
                     <div className="flex justify-start">
                         <div className="flex justify-between">

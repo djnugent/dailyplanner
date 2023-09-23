@@ -46,42 +46,42 @@ export interface Database {
           }
         ]
       }
-      plannedtask: {
+      planned_tasks: {
         Row: {
           complete_up_to: string | null
           created_at: string
           date: string | null
           id: number
-          is_complete: boolean | null
           task_id: number | null
+          user_id: string | null
         }
         Insert: {
           complete_up_to?: string | null
           created_at?: string
           date?: string | null
           id?: number
-          is_complete?: boolean | null
           task_id?: number | null
+          user_id?: string | null
         }
         Update: {
           complete_up_to?: string | null
           created_at?: string
           date?: string | null
           id?: number
-          is_complete?: boolean | null
           task_id?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "plannedtask_task_id_fkey"
+            foreignKeyName: "planned_tasks_task_id_fkey"
             columns: ["task_id"]
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "plannedtask_task_id_fkey"
-            columns: ["task_id"]
-            referencedRelation: "tasks_detail_view"
+            foreignKeyName: "planned_tasks_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]
@@ -90,40 +90,40 @@ export interface Database {
         Row: {
           archived: boolean | null
           complete_count: number | null
-          date: string | null
+          due_date: string | null
           id: number
           inserted_at: string
           list_id: number
           notes: string | null
           order: number | null
           recurring: Database["public"]["Enums"]["recurring_t"] | null
-          text: string
+          title: string
           user_id: string
         }
         Insert: {
           archived?: boolean | null
           complete_count?: number | null
-          date?: string | null
+          due_date?: string | null
           id?: number
           inserted_at?: string
           list_id: number
           notes?: string | null
           order?: number | null
           recurring?: Database["public"]["Enums"]["recurring_t"] | null
-          text: string
+          title: string
           user_id: string
         }
         Update: {
           archived?: boolean | null
           complete_count?: number | null
-          date?: string | null
+          due_date?: string | null
           id?: number
           inserted_at?: string
           list_id?: number
           notes?: string | null
           order?: number | null
           recurring?: Database["public"]["Enums"]["recurring_t"] | null
-          text?: string
+          title?: string
           user_id?: string
         }
         Relationships: [
@@ -143,38 +143,7 @@ export interface Database {
       }
     }
     Views: {
-      tasks_detail_view: {
-        Row: {
-          archived: boolean | null
-          complete_count: number | null
-          date: string | null
-          id: number
-          inserted_at: string
-          list_id: number
-          most_recent: Json | null
-          notes: string | null
-          order: number | null
-          recurring: Database["public"]["Enums"]["recurring_t"] | null
-          text: string
-          today: Json | null
-          tomorrow: Json | null
-          user_id: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_list_id_fkey"
-            columns: ["list_id"]
-            referencedRelation: "lists"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_user_id_fkey"
-            columns: ["user_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       [_ in never]: never

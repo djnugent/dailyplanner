@@ -7,6 +7,7 @@ import { TaskCard } from '@/components/TaskCard'
 import ListSection from '@/components/ListSection'
 import { QueueListIcon } from '@heroicons/react/24/outline';
 import { ListView } from '@/lib/types';
+import { useGetArchived } from '@/lib/query';
 
 function Loading() {
     return (
@@ -23,13 +24,13 @@ function Loading() {
     )
 }
 
-export default function Archive({ currentListID, setCurrentListID, listView, setListView, listsOverlay, setListsOverlay }: { currentListID: number | null, setCurrentListID: (listID: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
+export default function Archive({ currentListId, setCurrentListId, listView, setListView, listsOverlay, setListsOverlay }: { currentListId: number | null, setCurrentListId: (listId: number | null) => void, listView: ListView | null, setListView: (listView: ListView | null) => void, listsOverlay: boolean, setListsOverlay: (listsOverlay: boolean) => void }) {
     const session = useSession()
     const supabase = useSupabaseClient()
     const queryClient = useQueryClient();
     const [errorText, setErrorText] = useState('')
 
-    const { status: tasksStatus, data: tasks, error: taskError } = useQuery(["tasks", "archive"], () => fetchArchivedTasks({ supabase }));
+    const { status: tasksStatus, data: tasks, error: taskError } = useGetArchived({ supabase });
 
     const user = session?.user
 
@@ -55,6 +56,7 @@ export default function Archive({ currentListID, setCurrentListID, listView, set
                                 <TaskCard
                                     key={task.id}
                                     task={task}
+                                    disableCheckbox={true}
                                 />
                             ))) : <p className='text-gray-500'>Its looking pretty empty here 🦗</p>
                         }
@@ -64,8 +66,8 @@ export default function Archive({ currentListID, setCurrentListID, listView, set
             {listsOverlay &&
                 <div className='fixed w-screen h-[100svh] z-30 bg-gray-200 p-10'>
                     <ListSection
-                        currentListID={currentListID}
-                        setCurrentListID={setCurrentListID}
+                        currentListId={currentListId}
+                        setCurrentListId={setCurrentListId}
                         listView={listView}
                         setListView={setListView}
                         setListsOverlay={setListsOverlay}
