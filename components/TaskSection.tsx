@@ -93,7 +93,7 @@ export default function TaskSection({ currentListId, setCurrentListId, listView,
         <>
             <div className="mx-4 py-4 w-full h-[100svh] flex flex-col">
                 <div className="flex flex-row justify-between items-center">
-                    <h1 className="text-5xl font-bold">{listName}</h1>
+                    <h1 className="text-5xl font-bold mb-1">{listName}</h1>
                     <button onClick={() => setListsOverlay(true)}>
                         <QueueListIcon className="sm:hidden w-8 h-8" />
                     </button>

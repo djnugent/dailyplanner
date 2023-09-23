@@ -7,7 +7,7 @@ import ListSection from '@/components/ListSection'
 import { ChevronDownIcon, ChevronRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
 import { TaskDV, List, Day, ListView } from '@/lib/types';
 import { useGetSchedule, useCreateAndScheduleTask, useGetList, useGetLists, } from '@/lib/query';
-import { date2SqlDateStr } from '@/lib/utils';
+import { date2SqlDateStr, sqlDateStr2Date } from '@/lib/utils';
 
 function Loading() {
     return (
@@ -84,9 +84,8 @@ export default function MyDay({ day, currentListId, setCurrentListId, listView, 
 
     useEffect(() => {
         if (!tasks) return
-        const currentDateStr = date2SqlDateStr(currentDate)
-        const dueTasks = tasks.filter((task: TaskDV) => (!task.is_complete && task.due_date && task.due_date <= currentDateStr))
-        const inCompletedTasks = tasks.filter((task: TaskDV) => (!task.is_complete && !(task.due_date && task.due_date <= currentDateStr)))
+        const dueTasks = tasks.filter((task: TaskDV) => (!task.is_complete && task.due_date && sqlDateStr2Date(task.due_date) <= currentDate))
+        const inCompletedTasks = tasks.filter((task: TaskDV) => (!task.is_complete && !(task.due_date && sqlDateStr2Date(task.due_date) <= currentDate)))
         const completedTasks = tasks.filter((task: TaskDV) => task.is_complete)
 
         setDueTasks(dueTasks)
@@ -101,7 +100,7 @@ export default function MyDay({ day, currentListId, setCurrentListId, listView, 
         <>
             <div className="mx-4 py-4 w-full h-[100svh] flex flex-col">
                 <div className="flex flex-row justify-between items-center">
-                    <h1 className="text-5xl font-bold">{day}</h1>
+                    <h1 className="text-5xl font-bold mb-1">{day}</h1>
                     <button onClick={() => setListsOverlay(true)}>
                         <QueueListIcon className="sm:hidden w-8 h-8" />
                     </button>
