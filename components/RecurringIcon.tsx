@@ -7,7 +7,7 @@ const recurringMap = {
     weekly: 'W',
     monthly: 'M',
     yearly: 'Y',
-    perpetual: '∞',
+    perpetual: '♾️',
 }
 
 export function RecurringIcon({ recurring }: { recurring: Recurring }) {
